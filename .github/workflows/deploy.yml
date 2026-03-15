@@ -40,6 +40,7 @@ jobs:
           script: |
             set -e
             cd /opt/linkedin-bot
+            git config --global --add safe.directory /opt/linkedin-bot
 
             echo "=== Pulling latest code ==="
             git pull origin main
