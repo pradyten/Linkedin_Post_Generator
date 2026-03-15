@@ -42,8 +42,17 @@ jobs:
             cd /opt/linkedin-bot
             git config --global --add safe.directory /opt/linkedin-bot
 
+            # Ensure SSH user owns source files so git pull works.
+            # Runtime dirs (data, venv, .env) get chowned back to linkedin-bot after.
+            sudo chown -R $(whoami) /opt/linkedin-bot
+
             echo "=== Pulling latest code ==="
             git pull origin main
+
+            # Restore runtime directory ownership to service user
+            sudo chown -R linkedin-bot:linkedin-bot /opt/linkedin-bot/data
+            sudo chown -R linkedin-bot:linkedin-bot /opt/linkedin-bot/venv
+            sudo chown linkedin-bot:linkedin-bot /opt/linkedin-bot/.env 2>/dev/null || true
 
             if [ "${{ steps.changes.outputs.requirements }}" = "true" ]; then
               echo "=== Installing updated dependencies ==="
