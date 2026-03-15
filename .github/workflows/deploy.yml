@@ -49,10 +49,10 @@ jobs:
             echo "=== Pulling latest code ==="
             git pull origin main
 
-            # Restore runtime directory ownership to service user
-            sudo chown -R linkedin-bot:linkedin-bot /opt/linkedin-bot/data
-            sudo chown -R linkedin-bot:linkedin-bot /opt/linkedin-bot/venv
-            sudo chown linkedin-bot:linkedin-bot /opt/linkedin-bot/.env 2>/dev/null || true
+            echo "=== Restoring runtime directory ownership ==="
+            sudo chown -R linkedin-bot:linkedin-bot /opt/linkedin-bot/data 2>/dev/null || echo "data dir not found, skipping"
+            sudo chown -R linkedin-bot:linkedin-bot /opt/linkedin-bot/venv 2>/dev/null || echo "venv dir not found, skipping"
+            sudo chown linkedin-bot:linkedin-bot /opt/linkedin-bot/.env 2>/dev/null || echo ".env not found, skipping"
 
             if [ "${{ steps.changes.outputs.requirements }}" = "true" ]; then
               echo "=== Installing updated dependencies ==="
