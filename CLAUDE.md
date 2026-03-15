@@ -84,11 +84,15 @@ Key constraints enforced in prompts:
 
 Settings loaded from `.env` via Pydantic (config/settings.py). Required keys: `ANTHROPIC_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TAVILY_API_KEY`.
 
-Optional keys: `GOOGLE_API_KEY` (required if `WRITING_PROVIDER=gemini`), `WRITING_PROVIDER` (default: `gemini`).
+Optional keys: `GOOGLE_API_KEY` (required if `WRITING_PROVIDER=gemini`), `WRITING_PROVIDER` (default: `gemini`), `NUM_TOPIC_SUGGESTIONS` (default: `5`).
 
 Models: `analysis_model` (Sonnet) for trends/topics/hooks analysis, `writing_model` (Opus) for Claude refine fallback.
 
 Content files that shape output: `config/brand_voice.md`, `config/hooks.md`, `data/example_posts/examples.md`.
+
+### Topic Suggester (agents/topic_suggester.py)
+
+`suggest_topics()` accepts a `num_topics` parameter (default 5, configurable via `NUM_TOPIC_SUGGESTIONS` in `.env`). The system prompt is built dynamically by `_build_system_prompt(num_topics)` which interpolates the count into the prompt. Both `bot/telegram_bot.py` and `test_pipeline.py` pass `settings.num_topic_suggestions` to this function.
 
 ### Bot (bot/telegram_bot.py)
 
@@ -103,3 +107,15 @@ Hooks analysis auto-triggers every `hooks_analysis_threshold` (default 10) metri
 - Engagement score formula: `comments*3 + reposts*2 + likes*1`
 - Post history stored in `data/post_history.json`, recent topics checked to avoid repetition (30-day window)
 - `drop_pending_updates=True` in `run_polling()` to handle stale Telegram connections
+
+### Deployment (deploy/)
+
+Deployed on GCP Compute Engine e2-micro (free tier) in `us-central1-a`. Bot runs as a systemd service (`linkedin-bot.service`) under a dedicated `linkedin-bot` user.
+
+- `deploy/setup.sh` — VM setup script: installs Python, creates venv, configures systemd. Accepts optional repo URL argument for forks.
+- `deploy/deploy.sh` — Automated `gcloud` VM creation (bash/Linux/macOS only).
+- `deploy/DEPLOY.md` — Step-by-step guide with PowerShell (Windows) and bash commands.
+- `Dockerfile` + `.dockerignore` — Alternative Docker deployment.
+- `.env` is copied to `/opt/linkedin-bot/.env` on the VM, owned by `linkedin-bot` user with `600` permissions.
+- systemd directive is `WorkingDirectory` (not `WorkingDir`).
+- PuTTY's `pscp` (used by `gcloud compute scp` on Windows) doesn't expand `~` — use `/tmp/` for scp targets.
