@@ -8,31 +8,35 @@ Run the LinkedIn Post Generator bot 24/7 on GCP's free-tier e2-micro instance (1
 - [Google Cloud CLI](https://cloud.google.com/sdk/docs/install) (`gcloud`) installed and authenticated
 - Your API keys ready: `ANTHROPIC_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TAVILY_API_KEY`, and optionally `GOOGLE_API_KEY`
 
-## Option A: Automated Deploy
+## Step 1: Create a GCP Project
 
-```bash
-# 1. Set your GCP project
-gcloud config set project YOUR_PROJECT_ID
+```powershell
+# Create a new project (ID must be globally unique)
+gcloud projects create YOUR-PROJECT-ID
 
-# 2. Run the deploy script (creates VM + runs setup)
-bash deploy/deploy.sh
+# Set it as the active project
+gcloud config set project YOUR-PROJECT-ID
 
-# 3. SSH in to configure .env
-gcloud compute ssh linkedin-bot --zone=us-central1-a
-
-# 4. Create .env with your keys
-sudo nano /opt/linkedin-bot/.env
-# Paste your keys (see .env.example for format)
-
-# 5. Secure and start
-sudo chown linkedin-bot:linkedin-bot /opt/linkedin-bot/.env
-sudo chmod 600 /opt/linkedin-bot/.env
-sudo systemctl start linkedin-bot
+# Enable Compute Engine API (required for creating VMs)
+gcloud services enable compute.googleapis.com
 ```
 
-## Option B: Manual Deploy
+> **Note:** If the project ID is taken, try appending random numbers, e.g. `linkedin-bot-8342`.
 
-### 1. Create the VM
+## Step 2: Create the VM
+
+**PowerShell (Windows):**
+
+```powershell
+gcloud compute instances create linkedin-bot `
+    --zone=us-central1-a `
+    --machine-type=e2-micro `
+    --image-family=debian-12 `
+    --image-project=debian-cloud `
+    --boot-disk-size=10GB
+```
+
+**Bash (Linux/macOS):**
 
 ```bash
 gcloud compute instances create linkedin-bot \
@@ -43,28 +47,35 @@ gcloud compute instances create linkedin-bot \
     --boot-disk-size=10GB
 ```
 
-### 2. SSH into the VM
+Wait ~30 seconds for the VM to be ready.
 
-```bash
+## Step 3: Copy setup script to the VM
+
+```powershell
+gcloud compute scp deploy/setup.sh linkedin-bot:~/setup.sh --zone=us-central1-a
+```
+
+## Step 4: SSH into the VM and run setup
+
+```powershell
 gcloud compute ssh linkedin-bot --zone=us-central1-a
 ```
 
-### 3. Run the setup script
+Once inside the VM (Linux shell):
 
 ```bash
-# Clone the repo and run setup
-sudo apt-get update && sudo apt-get install -y git
-git clone https://github.com/YOUR_USER/Linkedin_Post_Generator.git /tmp/linkedin-bot
-sudo bash /tmp/linkedin-bot/deploy/setup.sh
+sudo bash ~/setup.sh
 ```
 
-### 4. Configure environment
+## Step 5: Configure environment
+
+Still inside the VM:
 
 ```bash
 sudo nano /opt/linkedin-bot/.env
 ```
 
-Add your keys (see `.env.example`):
+Paste your keys (see `.env.example` for format):
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...
@@ -77,20 +88,17 @@ SCHEDULE_HOUR=9
 TIMEZONE=Asia/Kolkata
 ```
 
-Secure the file:
+Secure the file and start:
 
 ```bash
 sudo chown linkedin-bot:linkedin-bot /opt/linkedin-bot/.env
 sudo chmod 600 /opt/linkedin-bot/.env
-```
-
-### 5. Start the service
-
-```bash
 sudo systemctl start linkedin-bot
 ```
 
 ## Monitoring
+
+All monitoring commands are run inside the VM (SSH in first with `gcloud compute ssh linkedin-bot --zone=us-central1-a`):
 
 ```bash
 # Check if the bot is running
@@ -111,11 +119,14 @@ sudo systemctl stop linkedin-bot
 
 ## Updating the Bot
 
-```bash
+```powershell
 # SSH into the VM
 gcloud compute ssh linkedin-bot --zone=us-central1-a
+```
 
-# Pull latest code and restart
+Then inside the VM:
+
+```bash
 cd /opt/linkedin-bot
 sudo -u linkedin-bot git pull
 sudo /opt/linkedin-bot/venv/bin/pip install -r requirements.txt
@@ -126,11 +137,17 @@ sudo systemctl restart linkedin-bot
 
 If you prefer Docker instead of systemd:
 
-```bash
-# Build
-docker build -t linkedin-bot .
+**PowerShell (Windows):**
 
-# Run (pass .env file)
+```powershell
+docker build -t linkedin-bot .
+docker run -d --name linkedin-bot --restart=always --env-file .env linkedin-bot
+```
+
+**Bash (Linux/macOS):**
+
+```bash
+docker build -t linkedin-bot .
 docker run -d --name linkedin-bot --restart=always --env-file .env linkedin-bot
 ```
 
@@ -147,6 +164,9 @@ The bot uses minimal resources (mostly idle, brief API call bursts during genera
 
 | Issue | Solution |
 |-------|----------|
+| `bash deploy/deploy.sh` fails on Windows | Run the gcloud commands directly in PowerShell (see Steps 2-4 above) |
+| Project ID already taken | Append random numbers to make it unique |
+| Compute Engine API not enabled | Run `gcloud services enable compute.googleapis.com` |
 | Bot not starting | Check logs: `sudo journalctl -u linkedin-bot -n 100` |
 | Permission denied | Verify `.env` ownership: `ls -la /opt/linkedin-bot/.env` |
 | API errors | Verify keys in `.env`, test locally first with `python test_pipeline.py` |
