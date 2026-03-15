@@ -1,6 +1,7 @@
 """Test the full pipeline: sources -> analyze -> suggest -> write. Run: python test_pipeline.py"""
 import asyncio
 import re
+import sys
 
 from config.settings import Settings
 
@@ -85,7 +86,7 @@ async def main():
     print("\n" + "=" * 60)
     print("GENERATED POST:")
     print("=" * 60)
-    print(post.encode("utf-8", errors="replace").decode("utf-8", errors="replace"))
+    print(post.encode(sys.stdout.encoding or "utf-8", errors="replace").decode(sys.stdout.encoding or "utf-8", errors="replace"))
     print("=" * 60)
     print(f"\nPost length: {len(post)} characters")
 
