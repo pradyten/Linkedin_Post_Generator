@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # setup.sh — Run once on the GCP VM after SSH-ing in.
-# Usage: sudo bash setup.sh
+# Usage: sudo bash setup.sh [REPO_URL]
+# Example: sudo bash setup.sh https://github.com/pradyten/Linkedin_Post_Generator.git
 set -euo pipefail
 
-REPO_URL="https://github.com/$(git remote get-url origin 2>/dev/null | sed 's|.*github.com[:/]\(.*\)\.git|\1|' || echo 'YOUR_USER/Linkedin_Post_Generator')"
+REPO_URL="${1:-https://github.com/pradyten/Linkedin_Post_Generator.git}"
 INSTALL_DIR="/opt/linkedin-bot"
 BOT_USER="linkedin-bot"
 

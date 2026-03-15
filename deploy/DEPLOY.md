@@ -52,8 +52,10 @@ Wait ~30 seconds for the VM to be ready.
 ## Step 3: Copy setup script to the VM
 
 ```powershell
-gcloud compute scp deploy/setup.sh linkedin-bot:~/setup.sh --zone=us-central1-a
+gcloud compute scp deploy/setup.sh linkedin-bot:/tmp/setup.sh --zone=us-central1-a
 ```
+
+> **Note:** Use `/tmp/` not `~/` — PuTTY's `pscp` on Windows doesn't expand `~`.
 
 ## Step 4: SSH into the VM and run setup
 
@@ -64,7 +66,7 @@ gcloud compute ssh linkedin-bot --zone=us-central1-a
 Once inside the VM (Linux shell):
 
 ```bash
-sudo bash ~/setup.sh
+sudo bash /tmp/setup.sh
 ```
 
 ## Step 5: Configure environment
