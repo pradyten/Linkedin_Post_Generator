@@ -121,6 +121,12 @@ sudo systemctl stop linkedin-bot
 
 ## Updating the Bot
 
+### Automatic (GitHub Actions)
+
+Every push to `main` automatically deploys to the VM via the workflow in `.github/workflows/deploy.yml`. See [Automated Deployment with GitHub Actions](#automated-deployment-with-github-actions) below for one-time setup.
+
+### Manual
+
 ```powershell
 # SSH into the VM
 gcloud compute ssh linkedin-bot --zone=us-central1-a
@@ -130,8 +136,87 @@ Then inside the VM:
 
 ```bash
 cd /opt/linkedin-bot
-sudo -u linkedin-bot git pull
+git pull origin main
 sudo /opt/linkedin-bot/venv/bin/pip install -r requirements.txt
+sudo systemctl restart linkedin-bot
+```
+
+## Automated Deployment with GitHub Actions
+
+The repository includes a GitHub Actions workflow (`.github/workflows/deploy.yml`) that automatically deploys on every push to `main`. It SSHs into the VM, pulls the latest code, conditionally installs dependencies and updates the service file, then restarts the bot.
+
+### One-time setup
+
+#### 1. Generate an SSH key pair
+
+On your local machine:
+
+```bash
+ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/github_deploy_key -N ""
+```
+
+This creates `~/.ssh/github_deploy_key` (private) and `~/.ssh/github_deploy_key.pub` (public).
+
+#### 2. Add the public key to your VM
+
+```powershell
+gcloud compute ssh linkedin-bot --zone=us-central1-a
+```
+
+Inside the VM:
+
+```bash
+# Append the public key to authorized_keys
+echo "YOUR_PUBLIC_KEY_CONTENTS" >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+```
+
+Replace `YOUR_PUBLIC_KEY_CONTENTS` with the contents of `github_deploy_key.pub`.
+
+#### 3. Get your VM's external IP and SSH username
+
+```powershell
+# External IP
+gcloud compute instances describe linkedin-bot --zone=us-central1-a --format="get(networkInterfaces[0].accessConfigs[0].natIP)"
+
+# SSH username (your gcloud default user)
+gcloud config get-value account
+# The username is typically the part before @ — e.g., "pradyumn" from "pradyumn@gmail.com"
+```
+
+#### 4. Add GitHub secrets
+
+Go to your repository on GitHub: **Settings > Secrets and variables > Actions > New repository secret**.
+
+Add these 3 secrets:
+
+| Secret | Value |
+|--------|-------|
+| `GCP_VM_HOST` | VM's external IP (from step 3) |
+| `GCP_VM_USER` | Your SSH username (from step 3, NOT `linkedin-bot`) |
+| `GCP_VM_SSH_KEY` | Entire contents of `~/.ssh/github_deploy_key` (private key) |
+
+#### 5. Verify
+
+Push a commit to `main` and check the **Actions** tab in your GitHub repository. The "Deploy to GCP VM" workflow should run and show each deploy step.
+
+> **Note:** If your VM's external IP changes (e.g., after a VM restart), update the `GCP_VM_HOST` secret. Consider reserving a [static external IP](https://cloud.google.com/compute/docs/ip-addresses/reserve-static-external-ip-address) to avoid this.
+
+## Updating API Keys
+
+API keys live only on the VM in `/opt/linkedin-bot/.env` — they are **not** stored in GitHub secrets.
+
+To update a key:
+
+```powershell
+gcloud compute ssh linkedin-bot --zone=us-central1-a
+```
+
+Inside the VM:
+
+```bash
+sudo nano /opt/linkedin-bot/.env
+# Edit the key(s) you need to change, save and exit
 sudo systemctl restart linkedin-bot
 ```
 

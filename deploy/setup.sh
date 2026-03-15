@@ -36,7 +36,11 @@ echo "=== 5. Creating data directory ==="
 mkdir -p "$INSTALL_DIR/data"
 
 echo "=== 6. Setting permissions ==="
-chown -R "$BOT_USER":"$BOT_USER" "$INSTALL_DIR"
+# Only set ownership on runtime directories — leave .git/ and source files
+# owned by the SSH user so CI/CD can run `git pull` without permission issues.
+chown -R "$BOT_USER":"$BOT_USER" "$INSTALL_DIR/data"
+chown -R "$BOT_USER":"$BOT_USER" "$INSTALL_DIR/venv"
+chown "$BOT_USER":"$BOT_USER" "$INSTALL_DIR/.env" 2>/dev/null || true
 
 echo "=== 7. Installing systemd service ==="
 cp "$INSTALL_DIR/deploy/linkedin-bot.service" /etc/systemd/system/linkedin-bot.service

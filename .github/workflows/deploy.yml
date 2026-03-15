@@ -1,0 +1,73 @@
+name: Deploy to GCP VM
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need previous commit to detect changed files
+
+      - name: Detect changed files
+        id: changes
+        run: |
+          if git diff --name-only HEAD~1 HEAD | grep -q '^requirements\.txt$'; then
+            echo "requirements=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "requirements=false" >> "$GITHUB_OUTPUT"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q '^deploy/linkedin-bot\.service$'; then
+            echo "service=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "service=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.GCP_VM_HOST }}
+          username: ${{ secrets.GCP_VM_USER }}
+          key: ${{ secrets.GCP_VM_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            cd /opt/linkedin-bot
+
+            echo "=== Pulling latest code ==="
+            git pull origin main
+
+            if [ "${{ steps.changes.outputs.requirements }}" = "true" ]; then
+              echo "=== Installing updated dependencies ==="
+              sudo /opt/linkedin-bot/venv/bin/pip install -r requirements.txt
+            else
+              echo "=== requirements.txt unchanged, skipping pip install ==="
+            fi
+
+            if [ "${{ steps.changes.outputs.service }}" = "true" ]; then
+              echo "=== Updating systemd service file ==="
+              sudo cp deploy/linkedin-bot.service /etc/systemd/system/linkedin-bot.service
+              sudo sed -i "s|ExecStart=/usr/bin/python3|ExecStart=/opt/linkedin-bot/venv/bin/python|" /etc/systemd/system/linkedin-bot.service
+              sudo systemctl daemon-reload
+            else
+              echo "=== Service file unchanged, skipping ==="
+            fi
+
+            echo "=== Restarting service ==="
+            sudo systemctl restart linkedin-bot
+
+            echo "=== Health check (waiting 10s) ==="
+            sleep 10
+            if sudo systemctl is-active --quiet linkedin-bot; then
+              echo "Service is running"
+            else
+              echo "Service failed to start! Recent logs:"
+              sudo journalctl -u linkedin-bot -n 30 --no-pager
+              exit 1
+            fi
