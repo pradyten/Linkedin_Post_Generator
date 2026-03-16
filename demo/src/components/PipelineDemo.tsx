@@ -131,6 +131,9 @@ export default function PipelineDemo({
     setFinalPost(null);
 
     // Phase 1: Sources
+    const sourcesText = PREBAKED_SOURCES.map(
+      (s) => `• [${s.source}] ${s.title}\n  ${s.summary}`
+    ).join("\n\n");
     const start1 = Date.now();
     updatePhase("sources", { status: "running" });
     onActivePhaseChange?.("sources");
@@ -139,10 +142,15 @@ export default function PipelineDemo({
     updatePhase("sources", {
       status: "done",
       summary: `${PREBAKED_SOURCES.length} items from 3 sources`,
+      streamedText: sourcesText,
       elapsed: Date.now() - start1,
     });
 
     // Phase 2: Analyze
+    const trendsText = PREBAKED_TRENDS.map(
+      (t) =>
+        `**${t.theme}** (relevance: ${t.relevance_score}/10)\n${t.title}\n${t.summary}`
+    ).join("\n\n");
     const start2 = Date.now();
     updatePhase("analyze", { status: "running" });
     onActivePhaseChange?.("analyze");
@@ -151,10 +159,14 @@ export default function PipelineDemo({
     updatePhase("analyze", {
       status: "done",
       summary: `${PREBAKED_TRENDS.length} trends identified`,
+      streamedText: trendsText,
       elapsed: Date.now() - start2,
     });
 
     // Phase 3: Suggest
+    const topicsText = PREBAKED_TOPICS.map(
+      (t) => `**${t.title}**\nHook: "${t.hook}"\n${t.reasoning}`
+    ).join("\n\n");
     const start3 = Date.now();
     updatePhase("suggest", { status: "running" });
     onActivePhaseChange?.("suggest");
@@ -163,6 +175,7 @@ export default function PipelineDemo({
     updatePhase("suggest", {
       status: "done",
       summary: `${PREBAKED_TOPICS.length} topics suggested`,
+      streamedText: topicsText,
       elapsed: Date.now() - start3,
     });
 
@@ -266,27 +279,44 @@ export default function PipelineDemo({
       });
       const sourcesData = await sourcesRes.json();
       pipelineDataRef.current.items = sourcesData.items;
+      const liveSourcesText = (sourcesData.items as TrendItem[])
+        .slice(0, 15)
+        .map((s: TrendItem) => `• [${s.source}] ${s.title}\n  ${s.summary}`)
+        .join("\n\n");
       updatePhase("sources", {
         status: "done",
         summary: `${sourcesData.count} items fetched`,
+        streamedText: liveSourcesText,
         elapsed: Date.now() - start1,
       });
 
-      // Phase 2: Analyze
+      // Phase 2: Analyze — limit to 20 items to avoid Vercel Edge timeout
+      const itemsForAnalysis = pipelineDataRef.current.items.slice(0, 20);
       const start2 = Date.now();
       updatePhase("analyze", { status: "running" });
       onActivePhaseChange?.("analyze");
       const analyzeRes = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: pipelineDataRef.current.items }),
+        body: JSON.stringify({ items: itemsForAnalysis }),
         signal: abortRef.current.signal,
       });
+      if (!analyzeRes.ok) {
+        const err = await analyzeRes.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(err.error || `Analyze failed: HTTP ${analyzeRes.status}`);
+      }
       const analyzeData = await analyzeRes.json();
       pipelineDataRef.current.trends = analyzeData.trends;
+      const liveTrendsText = (analyzeData.trends as AnalyzedTrend[])
+        .map(
+          (t: AnalyzedTrend) =>
+            `**${t.theme}** (relevance: ${t.relevance_score}/10)\n${t.title}\n${t.summary}`
+        )
+        .join("\n\n");
       updatePhase("analyze", {
         status: "done",
         summary: `${analyzeData.trends.length} trends identified`,
+        streamedText: liveTrendsText,
         elapsed: Date.now() - start2,
       });
 
@@ -300,11 +330,22 @@ export default function PipelineDemo({
         body: JSON.stringify({ trends: pipelineDataRef.current.trends }),
         signal: abortRef.current.signal,
       });
+      if (!suggestRes.ok) {
+        const err = await suggestRes.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(err.error || `Suggest failed: HTTP ${suggestRes.status}`);
+      }
       const suggestData = await suggestRes.json();
       pipelineDataRef.current.topics = suggestData.topics;
+      const liveTopicsText = (suggestData.topics as TopicSuggestion[])
+        .map(
+          (t: TopicSuggestion) =>
+            `**${t.title}**\nHook: "${t.hook}"\n${t.reasoning}`
+        )
+        .join("\n\n");
       updatePhase("suggest", {
         status: "done",
         summary: `${suggestData.topics.length} topics suggested`,
+        streamedText: liveTopicsText,
         elapsed: Date.now() - start3,
       });
 
