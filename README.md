@@ -2,6 +2,8 @@
 
 AI-powered LinkedIn post generator that fetches trending AI/tech news, analyzes trends, and generates ready-to-post content via a Telegram bot interface.
 
+**[Live Demo](https://linkedin-post-generator-demo.vercel.app)** — Watch the pipeline run in real-time or try it with live API calls.
+
 ## How It Works
 
 ```
@@ -21,6 +23,15 @@ Sources (parallel)          Agents (sequential)              Bot
 3. **Suggest** — Picks the top topics (configurable, default 5) with hooks and angles
 4. **Write** — 3-phase chain (research → draft → refine) using Gemini or Claude, with live web research via Tavily
 5. **Deliver** — Telegram bot presents topics as buttons; user picks one, then can save, tweak, or regenerate
+
+## Live Demo
+
+The [interactive demo](https://linkedin-post-generator-demo.vercel.app) showcases the full pipeline with two modes:
+
+- **Watch Demo** — Pre-baked auto-play with simulated streaming. No API keys needed.
+- **Try Live** — Real API calls to Claude + Tavily. Rate-limited to 3 runs/day.
+
+Built with Next.js 15, Tailwind CSS, and framer-motion. Deployed on Vercel with auto-deploy via GitHub Actions. See [`demo/`](demo/) for source code.
 
 ## Setup
 
@@ -133,9 +144,18 @@ docker run -d --restart=always --env-file .env linkedin-bot
 │   ├── deploy.sh            # Automated VM creation
 │   ├── setup.sh             # VM setup script
 │   └── linkedin-bot.service # systemd service unit
+├── demo/                    # Interactive Vercel demo (Next.js)
+│   ├── src/
+│   │   ├── app/             # Pages and API routes (Edge Runtime)
+│   │   ├── components/      # React components (PipelineDemo, PhaseCard, etc.)
+│   │   ├── lib/             # Prompts, sources, agents, writer, rate-limit
+│   │   └── types/           # TypeScript interfaces
+│   ├── package.json
+│   └── .env.example
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml       # Auto-deploy on push to main
+│       ├── deploy.yml       # Auto-deploy bot to GCP on push
+│       └── deploy-demo.yml  # Auto-deploy demo to Vercel on push
 ├── Dockerfile               # Container build
 ├── requirements.txt
 └── .env.example
