@@ -121,3 +121,34 @@ Deployed on GCP Compute Engine e2-micro (free tier) in `us-central1-a`. Bot runs
 - systemd directive is `WorkingDirectory` (not `WorkingDir`).
 - PuTTY's `pscp` (used by `gcloud compute scp` on Windows) doesn't expand `~` — use `/tmp/` for scp targets.
 - `script_stop: true` in `appleboy/ssh-action` requires single-line `if/then/else/fi` — multi-line blocks cause silent failures.
+
+### Demo App (demo/)
+
+Portfolio demo deployed on Vercel at https://linkedin-post-generator-demo.vercel.app. Showcases the multi-agent pipeline with an interactive UI.
+
+```bash
+# Dev server
+cd demo && npm run dev
+
+# Production build
+cd demo && npm run build
+```
+
+**Stack:** Next.js 15 (App Router), Tailwind CSS v4, framer-motion, TypeScript. All API routes use Edge Runtime.
+
+**Two modes:**
+- **Watch Demo** — Pre-baked auto-play with simulated streaming (~30 chars/sec). No API keys needed.
+- **Try Live** — Real API calls to Claude + Tavily. Rate-limited to 3 runs/day per IP.
+
+**Pipeline phases:** Sources → Analyze Trends → Suggest Topics → Research → Draft → Refine. Each phase has its own API route (`/api/sources`, `/api/analyze`, `/api/suggest`, `/api/research`, `/api/draft`, `/api/refine`). Phases 4-6 stream via SSE.
+
+**Key files:**
+- `src/lib/prompts.ts` — All LLM prompts copied verbatim from Python source
+- `src/lib/prebaked-data.ts` — Cached pipeline run for demo mode
+- `src/lib/writer.ts` — Claude streaming via raw `fetch()` (not SDK, for Edge Runtime compatibility)
+- `src/lib/sources.ts` — Tavily + HackerNews + RSS (via rss2json.com for Edge Runtime)
+- `src/components/PipelineDemo.tsx` — Main orchestrator managing demo/live modes
+
+**Env vars (Vercel project settings):** `ANTHROPIC_API_KEY`, `TAVILY_API_KEY`
+
+**CD:** `.github/workflows/deploy-demo.yml` — Auto-deploys on push to `main` when `demo/**` changes. Uses Vercel CLI. Requires GitHub secrets: `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `VERCEL_TOKEN`.
