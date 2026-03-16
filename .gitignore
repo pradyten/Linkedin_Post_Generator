@@ -2,6 +2,8 @@
 data/post_history.json
 deploy/*.env
 .claude/
+.playwright-mcp/
+*.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
