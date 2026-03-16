@@ -45,17 +45,20 @@ export async function analyzeTrends(
 ): Promise<AnalyzedTrend[]> {
   if (!items.length) return [];
 
-  const itemsText = items
+  // Limit items and truncate summaries to stay within Vercel Edge timeout
+  const limitedItems = items.slice(0, 15);
+  const itemsText = limitedItems
     .map(
       (item, i) =>
-        `[${i + 1}] (${item.source}) ${item.title}\nSummary: ${item.summary}\nURL: ${item.url || "N/A"}`
+        `[${i + 1}] (${item.source}) ${item.title}\nSummary: ${(item.summary || "").slice(0, 200)}\nURL: ${item.url || "N/A"}`
     )
     .join("\n\n");
 
   const response = await callClaude(
     apiKey,
     TREND_ANALYZER_SYSTEM,
-    `Analyze these ${items.length} AI news items:\n\n${itemsText}`
+    `Analyze these ${limitedItems.length} AI news items:\n\n${itemsText}`,
+    2048
   );
 
   try {

@@ -268,9 +268,11 @@ export default function PipelineDemo({
     setIsRunning(true);
     setFinalPost(null);
     abortRef.current = new AbortController();
+    let currentPhase: PipelinePhase = "sources";
 
     try {
       // Phase 1: Sources
+      currentPhase = "sources";
       const start1 = Date.now();
       updatePhase("sources", { status: "running" });
       onActivePhaseChange?.("sources");
@@ -281,7 +283,7 @@ export default function PipelineDemo({
       pipelineDataRef.current.items = sourcesData.items;
       const liveSourcesText = (sourcesData.items as TrendItem[])
         .slice(0, 15)
-        .map((s: TrendItem) => `• [${s.source}] ${s.title}\n  ${s.summary}`)
+        .map((s: TrendItem) => `• [${s.source}] ${s.title}\n  ${(s.summary || "").slice(0, 150)}`)
         .join("\n\n");
       updatePhase("sources", {
         status: "done",
@@ -290,15 +292,15 @@ export default function PipelineDemo({
         elapsed: Date.now() - start1,
       });
 
-      // Phase 2: Analyze — limit to 20 items to avoid Vercel Edge timeout
-      const itemsForAnalysis = pipelineDataRef.current.items.slice(0, 20);
+      // Phase 2: Analyze
+      currentPhase = "analyze";
       const start2 = Date.now();
       updatePhase("analyze", { status: "running" });
       onActivePhaseChange?.("analyze");
       const analyzeRes = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: itemsForAnalysis }),
+        body: JSON.stringify({ items: pipelineDataRef.current.items }),
         signal: abortRef.current.signal,
       });
       if (!analyzeRes.ok) {
@@ -321,6 +323,7 @@ export default function PipelineDemo({
       });
 
       // Phase 3: Suggest
+      currentPhase = "suggest";
       const start3 = Date.now();
       updatePhase("suggest", { status: "running" });
       onActivePhaseChange?.("suggest");
@@ -354,24 +357,23 @@ export default function PipelineDemo({
       setShowTopicPicker(true);
     } catch (e: unknown) {
       if (e instanceof Error && e.name === "AbortError") return;
-      const phase = PHASES.find((p) => phases[p].status === "running");
-      if (phase) {
-        updatePhase(phase, {
-          status: "error",
-          error: e instanceof Error ? e.message : "Unknown error",
-        });
-      }
+      updatePhase(currentPhase, {
+        status: "error",
+        error: e instanceof Error ? e.message : "Unknown error",
+      });
       setIsRunning(false);
     }
-  }, [updatePhase, onActivePhaseChange, phases]);
+  }, [updatePhase, onActivePhaseChange]);
 
   const continueAfterTopicSelection = useCallback(
     async (topic: TopicSuggestion) => {
       setSelectedTopic(topic);
       setShowTopicPicker(false);
+      let currentPhase: PipelinePhase = "research";
 
       try {
         // Phase 4: Research
+        currentPhase = "research";
         const researchResult = await streamFromSSE(
           "/api/research",
           { topic },
@@ -381,6 +383,7 @@ export default function PipelineDemo({
         pipelineDataRef.current.webSources = researchResult.sources || [];
 
         // Phase 5: Draft
+        currentPhase = "draft";
         const draftResult = await streamFromSSE(
           "/api/draft",
           {
@@ -393,6 +396,7 @@ export default function PipelineDemo({
         pipelineDataRef.current.draft = draftResult.fullText;
 
         // Phase 6: Refine
+        currentPhase = "refine";
         const refineResult = await streamFromSSE(
           "/api/refine",
           { draft: pipelineDataRef.current.draft },
@@ -404,18 +408,15 @@ export default function PipelineDemo({
         refresh();
       } catch (e: unknown) {
         if (e instanceof Error && e.name === "AbortError") return;
-        const phase = PHASES.find((p) => phases[p].status === "running");
-        if (phase) {
-          updatePhase(phase, {
-            status: "error",
-            error: e instanceof Error ? e.message : "Unknown error",
-          });
-        }
+        updatePhase(currentPhase, {
+          status: "error",
+          error: e instanceof Error ? e.message : "Unknown error",
+        });
       } finally {
         setIsRunning(false);
       }
     },
-    [streamFromSSE, updatePhase, onActivePhaseChange, phases, refresh]
+    [streamFromSSE, updatePhase, onActivePhaseChange, refresh]
   );
 
   const runLiveTopicMode = useCallback(async () => {
