@@ -32,18 +32,15 @@ jobs:
 
       - name: Pull Vercel environment
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: demo
 
       - name: Build
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: demo
 
       - name: Deploy to production
         id: deploy
         run: |
           url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$url" >> "$GITHUB_OUTPUT"
-        working-directory: demo
 
       - name: Deployment summary
         run: echo "Deployed to ${{ steps.deploy.outputs.url }}"
