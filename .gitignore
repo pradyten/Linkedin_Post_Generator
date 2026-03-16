@@ -1,6 +1,7 @@
 # Project-specific
 data/post_history.json
 deploy/*.env
+.claude/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

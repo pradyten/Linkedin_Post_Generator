@@ -93,6 +93,8 @@ python test_pipeline.py
 
 The bot can run 24/7 on a GCP Compute Engine e2-micro instance (free tier). See [deploy/DEPLOY.md](deploy/DEPLOY.md) for the full guide.
 
+**Auto-deploy:** Every push to `main` automatically deploys via GitHub Actions. One-time setup required — see the [CI/CD section](deploy/DEPLOY.md#automated-deployment-with-github-actions) in DEPLOY.md.
+
 Quick start:
 
 ```bash
@@ -131,6 +133,9 @@ docker run -d --restart=always --env-file .env linkedin-bot
 │   ├── deploy.sh            # Automated VM creation
 │   ├── setup.sh             # VM setup script
 │   └── linkedin-bot.service # systemd service unit
+├── .github/
+│   └── workflows/
+│       └── deploy.yml       # Auto-deploy on push to main
 ├── Dockerfile               # Container build
 ├── requirements.txt
 └── .env.example

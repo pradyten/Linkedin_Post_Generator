@@ -112,10 +112,12 @@ Hooks analysis auto-triggers every `hooks_analysis_threshold` (default 10) metri
 
 Deployed on GCP Compute Engine e2-micro (free tier) in `us-central1-a`. Bot runs as a systemd service (`linkedin-bot.service`) under a dedicated `linkedin-bot` user.
 
-- `deploy/setup.sh` — VM setup script: installs Python, creates venv, configures systemd. Accepts optional repo URL argument for forks.
+- `deploy/setup.sh` — VM setup script: installs Python, creates venv, configures systemd. Accepts optional repo URL argument for forks. Only chowns runtime dirs (`data/`, `venv/`, `.env`) to `linkedin-bot` — source files stay owned by SSH user for CI/CD compatibility.
 - `deploy/deploy.sh` — Automated `gcloud` VM creation (bash/Linux/macOS only).
 - `deploy/DEPLOY.md` — Step-by-step guide with PowerShell (Windows) and bash commands.
+- `.github/workflows/deploy.yml` — GitHub Actions auto-deploy on push to `main`. Uses `appleboy/ssh-action` to SSH into VM, `sudo git pull`, conditionally install deps/update service, restart, and health check. Requires 3 GitHub secrets: `GCP_VM_HOST`, `GCP_VM_USER`, `GCP_VM_SSH_KEY`.
 - `Dockerfile` + `.dockerignore` — Alternative Docker deployment.
-- `.env` is copied to `/opt/linkedin-bot/.env` on the VM, owned by `linkedin-bot` user with `600` permissions.
+- `.env` lives only on the VM at `/opt/linkedin-bot/.env` with `600` permissions — not in GitHub secrets.
 - systemd directive is `WorkingDirectory` (not `WorkingDir`).
 - PuTTY's `pscp` (used by `gcloud compute scp` on Windows) doesn't expand `~` — use `/tmp/` for scp targets.
+- `script_stop: true` in `appleboy/ssh-action` requires single-line `if/then/else/fi` — multi-line blocks cause silent failures.
